@@ -9,9 +9,6 @@ const webhookUrl = process.env.WEBHOOK_URL; // URL сервера
 const bot = new TelegramBot(token);
 const app = express();
 app.use(express.json());
-app.use(express.static('public'));
-
-// ======= ДАННЫЕ И СОСТОЯНИЕ =======
 
 // Массив пользователей
 const users = [
@@ -19,7 +16,7 @@ const users = [
   { name: "👤 Ярослав", id: 5199037185, username: "Ярослав Ющенко" },
 ];
 
-// Массив шаблонов сообщений для случайного выбора
+// Массив сообщений для случайного выбора
 const messages = [
   "Привет @$username, играем? 🚀 - Тебя вызывает @$caller_name",
   "@$username, присоединяйся к игре! 🎮 - Тебя вызывает @$caller_name",
@@ -27,86 +24,43 @@ const messages = [
   "@$username, как на счет поиграть в Fortnite ?! 👋 - Тебя вызывает @$caller_name"
 ];
 
-// Состояние бота для мониторинга
+// Переменная для отслеживания состояния бота
 const botStatus = {
   startTime: new Date(),
   lastPingTime: new Date(),
   totalPings: 0
 };
 
-// ======= ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =======
-
-/**
- * Возвращает случайное сообщение из массива шаблонов
- * @returns {string} - Случайное сообщение
- */
+// Функция для получения случайного сообщения
 function getRandomMessage() {
   const randomIndex = Math.floor(Math.random() * messages.length);
   return messages[randomIndex];
 }
 
-/**
- * Генерирует клавиатуру с кнопками пользователей (по 2 в ряд)
- * и кнопкой "Позвать всех" сверху
- * @param {Array} users - Массив пользователей
- * @returns {Array} - Массив кнопок для inline клавиатуры
- */
+// Функция для группировки кнопок по 2 в ряд с кнопкой "Позвать всех" сверху
 function generateKeyboard(users) {
   const keyboard = [
+    // Добавляем кнопку "Позвать всех" в первую строку
     [{ text: "🔊 Позвать всех", callback_data: "call_all" }]
   ];
   
-  // Группируем кнопки пользователей по 2 в ряд
+  // Добавляем остальные кнопки пользователей
   for (let i = 0; i < users.length; i += 2) {
-    const row = [];
-    row.push({ text: users[i].name, callback_data: users[i].id.toString() });
-    
-    // Добавляем вторую кнопку в ряд, если она существует
     if (users[i + 1]) {
-      row.push({ text: users[i + 1].name, callback_data: users[i + 1].id.toString() });
+      // Если есть пара, добавляем две кнопки в ряд
+      keyboard.push([
+        { text: users[i].name, callback_data: users[i].id.toString() },
+        { text: users[i + 1].name, callback_data: users[i + 1].id.toString() }
+      ]);
+    } else {
+      // Если последний без пары, добавляем его в одиночку
+      keyboard.push([{ text: users[i].name, callback_data: users[i].id.toString() }]);
     }
-    
-    keyboard.push(row);
   }
-  
   return keyboard;
 }
 
-/**
- * Находит пользователя по id и возвращает его имя без эмодзи
- * @param {number} userId - ID пользователя
- * @param {Object} defaultUser - Объект пользователя по умолчанию
- * @returns {string} - Имя пользователя без эмодзи
- */
-function getUserName(userId, defaultUser = {}) {
-  const userFromArray = users.find(u => u.id === userId);
-  
-  if (userFromArray) {
-    return userFromArray.name.replace("👤 ", "");
-  }
-  
-  return defaultUser.first_name || "пользователь";
-}
-
-/**
- * Находит пользователя по id и возвращает его username
- * @param {number} userId - ID пользователя
- * @param {Object} defaultUser - Объект пользователя по умолчанию
- * @returns {string} - Username пользователя
- */
-function getUserUsername(userId, defaultUser = {}) {
-  const userFromArray = users.find(u => u.id === userId);
-  
-  if (userFromArray && userFromArray.username) {
-    return userFromArray.username;
-  }
-  
-  return defaultUser.username || "пользователь";
-}
-
-// ======= НАСТРОЙКА EXPRESS =======
-
-// Устанавливаем webhook для бота
+// Устанавливаем webhook
 bot.setWebHook(`${webhookUrl}/bot${token}`);
 
 // Обрабатываем запросы от Telegram
@@ -115,7 +69,7 @@ app.post(`/bot${token}`, (req, res) => {
   res.sendStatus(200);
 });
 
-// Эндпоинт для UptimeRobot
+// Добавляем эндпоинт для UptimeRobot
 app.get('/ping', (req, res) => {
   const now = new Date();
   botStatus.totalPings++;
@@ -137,170 +91,47 @@ app.get('/ping', (req, res) => {
   console.log(`[UptimeRobot] Bot pinged at ${now.toISOString()} (ping #${botStatus.totalPings})`);
 });
 
-// Корневой эндпоинт для проверки работоспособности сервера
+// Добавляем корневой эндпоинт для проверки работоспособности сервера
 app.get('/', (req, res) => {
-  const now = new Date();
-  const uptimeSeconds = Math.floor((now - botStatus.startTime) / 1000);
-  const uptimeFormatted = formatUptime(uptimeSeconds);
-  const lastPingDelta = Math.floor((now - botStatus.lastPingTime) / 1000);
-  const lastPingFormatted = lastPingDelta > 60 
-    ? `${Math.floor(lastPingDelta / 60)} мин ${lastPingDelta % 60} сек назад` 
-    : `${lastPingDelta} сек назад`;
-  
-  // Форматируем дату и время в удобочитаемом виде
-  const formatDate = (date) => {
-    return date.toLocaleString('ru-RU', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    });
-  };
-  
   res.status(200).send(`
-    <!DOCTYPE html>
-    <html lang="ru">
+    <html>
       <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Telegram Bot Status</title>
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
-        <link rel="stylesheet" href="/styles/bot-status.css">
+        <style>
+          body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
+          .status { color: green; font-weight: bold; }
+          .info { margin: 20px; padding: 10px; background: #f0f0f0; display: inline-block; text-align: left; }
+        </style>
       </head>
       <body>
-        <div class="container">
-          <div class="header">
-            <h1>Telegram Bot Status</h1>
-            <p class="subtitle">Мониторинг состояния бота</p>
-            <div class="status-indicator">
-              <div class="status-dot"></div>
-              Онлайн
-            </div>
-          </div>
-          
-          <div class="card">
-            <div class="card-header">Общая информация</div>
-            <div class="card-body">
-              <div class="info-grid">
-                <div class="info-item">
-                  <div class="info-label">Запущен</div>
-                  <div class="info-value" id="start-time" data-start-time="${botStatus.startTime.toISOString()}">${formatDate(botStatus.startTime)}</div>
-                </div>
-                <div class="info-item">
-                  <div class="info-label">Время работы</div>
-                  <div class="info-value" id="uptime-value">${uptimeFormatted}</div>
-                </div>
-                <div class="info-item">
-                  <div class="info-label">Последний пинг</div>
-                  <div class="info-value">${formatDate(botStatus.lastPingTime)} (${lastPingFormatted})</div>
-                </div>
-                <div class="info-item">
-                  <div class="info-label">Всего пингов</div>
-                  <div class="info-value">${botStatus.totalPings.toLocaleString()}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          <div class="card">
-            <div class="card-header">Системная информация</div>
-            <div class="card-body">
-              <div class="info-grid">
-                <div class="info-item">
-                  <div class="info-label">Текущее время сервера</div>
-                  <div class="info-value">${formatDate(now)}</div>
-                </div>
-                <div class="info-item">
-                  <div class="info-label">Порт сервера</div>
-                  <div class="info-value">${port}</div>
-                </div>
-                <div class="info-item">
-                  <div class="info-label">Node.js версия</div>
-                  <div class="info-value">${process.version}</div>
-                </div>
-                <div class="info-item">
-                  <div class="info-label">Платформа</div>
-                  <div class="info-value">${process.platform}</div>
-                </div>
-              </div>
-              <div class="info-item" style="margin-top: 1rem;">
-                <div class="info-label">Endpoint для мониторинга</div>
-                <div class="info-value highlight">/ping</div>
-              </div>
-            </div>
-          </div>
-          
-          <div class="footer">
-            <p>© ${new Date().getFullYear()} Telegram Bot Server</p>
-            <p id="last-update">Обновлено: ${new Date().toLocaleTimeString()}</p>
-          </div>
+        <h1>Telegram Bot Server</h1>
+        <p>Status: <span class="status">Online</span></p>
+        <div class="info">
+          <p>Server started: ${botStatus.startTime.toISOString()}</p>
+          <p>Last ping: ${botStatus.lastPingTime.toISOString()}</p>
+          <p>Total pings: ${botStatus.totalPings}</p>
+          <p>Uptime: ${Math.floor((new Date() - botStatus.startTime) / 1000)} seconds</p>
         </div>
-        
-        <script src="/scripts/bot-status.js"></script>
+        <p><small>Use /ping endpoint for UptimeRobot monitoring</small></p>
       </body>
     </html>
   `);
 });
 
-/**
- * Форматирует время в читаемый формат (дни, часы, минуты, секунды)
- * @param {number} seconds - Время в секундах
- * @returns {string} - Отформатированное время
- */
-function formatUptime(seconds) {
-  const days = Math.floor(seconds / 86400);
-  seconds %= 86400;
-  
-  const hours = Math.floor(seconds / 3600);
-  seconds %= 3600;
-  
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-  
-  const parts = [];
-  
-  if (days > 0) parts.push(`${days} ${pluralize(days, 'день', 'дня', 'дней')}`);
-  if (hours > 0) parts.push(`${hours} ${pluralize(hours, 'час', 'часа', 'часов')}`);
-  if (minutes > 0) parts.push(`${minutes} ${pluralize(minutes, 'минута', 'минуты', 'минут')}`);
-  if (remainingSeconds > 0 || parts.length === 0) {
-    parts.push(`${remainingSeconds} ${pluralize(remainingSeconds, 'секунда', 'секунды', 'секунд')}`);
-  }
-  
-  return parts.join(', ');
-}
-
-/**
- * Склоняет слова в зависимости от числа
- * @param {number} number - Число
- * @param {string} one - Форма для 1
- * @param {string} few - Форма для 2-4
- * @param {string} many - Форма для 5-20
- * @returns {string} - Правильно склоненное слово
- */
-function pluralize(number, one, few, many) {
-  if (number % 10 === 1 && number % 100 !== 11) {
-    return one;
-  }
-  if ([2, 3, 4].includes(number % 10) && ![12, 13, 14].includes(number % 100)) {
-    return few;
-  }
-  return many;
-}
-
-// ======= НАСТРОЙКА TELEGRAM БОТА =======
-
-// Команда /start с клавиатурой
+// Команда /start с кнопками
 bot.onText(/\/start/, (msg) => {
   const chatId = msg.chat.id;
   const userId = msg.from.id;
   
-  const userName = getUserName(userId, msg.from);
+  // Ищем пользователя в массиве по ID
+  const userFromArray = users.find(u => u.id === userId);
   
-  bot.sendMessage(chatId, `Привет, ${userName} \n\nВыбери действие - 🤖:`, {
+  // Используем имя из массива, если пользователь найден, иначе используем имя из Telegram или "пользователь"
+  const userName = userFromArray 
+    ? userFromArray.name.replace("👤 ", "") // Убираем эмодзи из имени 
+    : (msg.from.first_name || "пользователь");
+  
+  bot.sendMessage(chatId, `Привет, ${userName} 🤖\n\nВыберите действие:`, {
     reply_markup: { inline_keyboard: generateKeyboard(users) }
   });
 });
@@ -312,8 +143,11 @@ bot.on("callback_query", (query) => {
   
   // Получаем информацию о пользователе, который вызвал колбэк
   const callerId = query.from.id;
-  const callerUsername = getUserUsername(callerId, query.from);
-  const callerName = getUserName(callerId, query.from);
+  const callerFromArray = users.find(u => u.id === callerId);
+  const callerUsername = callerFromArray ? callerFromArray.username : (query.from.username || "пользователь");
+  const callerName = callerFromArray 
+    ? callerFromArray.name.replace("👤 ", "") 
+    : (query.from.first_name || "пользователь");
   
   // Если нажата кнопка "Позвать всех"
   if (callbackData === "call_all") {
@@ -329,10 +163,11 @@ bot.on("callback_query", (query) => {
       `📢 У кого есть желание сегодня поиграть?! ${mentionList} - Вызывает ${callerName}`
     );
     
+    // Важно! Добавляем return, чтобы прервать выполнение остального кода
     return;
   }
   
-  // Обычное поведение для кнопок пользователей
+  // Обычное поведение для других кнопок
   const userId = parseInt(callbackData);
   const user = users.find(u => u.id === userId);
 
@@ -352,8 +187,7 @@ bot.on("callback_query", (query) => {
   }
 });
 
-// ======= ЗАПУСК СЕРВЕРА =======
-
+// Запускаем сервер
 app.listen(port, () => {
   console.log(`Бот запущен на порту ${port}`);
   console.log(`Мониторинг доступен по адресу ${webhookUrl}/ping`);
