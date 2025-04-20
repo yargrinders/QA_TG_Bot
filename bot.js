@@ -322,15 +322,11 @@ bot.on("callback_query", (query) => {
       .filter(user => user.username) // Только те, у кого есть username
       .map(user => `@${user.username}`)
       .join(" ");
-
-    // Находим пользователя в массиве для получения чистого username
-    const caller = users.find(user => user.id === callerId);
-    const cleanUsername = caller ? caller.username : callerUsername;  
     
     // Отправляем сообщение со всеми упоминаниями
     bot.sendMessage(
       chatId, 
-      `📢 У кого есть желание сегодня поиграть?! ${mentionList} - Вызывает @${callerName}`
+      `📢 У кого есть желание сегодня поиграть?! ${mentionList} - Вызывает ${callerName}`
     );
     
     return;
