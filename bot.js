@@ -12,7 +12,7 @@ app.use(express.json());
 
 // Массив пользователей
 const users = [
-  { name: "👨‍💻 Yargrinders", id: 910176803, username: "Yargrinders" }, // Звезда, яркость
+  { name: "👤 Yargrinders", id: 910176803, username: "Yargrinders" }, // Звезда, яркость
   { name: "👤 Ярослав", id: 5199037185, username: "Ярослав Ющенко" },
 ];
 
