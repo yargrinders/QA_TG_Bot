@@ -82,7 +82,10 @@ function getUserName(userId, defaultUser = {}) {
   const userFromArray = users.find(u => u.id === userId);
   
   if (userFromArray) {
-    return userFromArray.name.replace("👤 ", "👨‍💻 ", ""); // 
+    return userFromArray.name
+    .replace("👤 ",  "")
+    .replace("👨‍💻 ",  "")
+    .trim(); // Удаляем лишние пробелы
   }
   
   return defaultUser.first_name || "пользователь";
